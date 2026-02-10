@@ -59,50 +59,67 @@ function Dashboard() {
     if (!customers || customers.length === 0) return null;
 
     // Insight 1: Inactive vs Active churn risk comparison
-    const inactiveCustomers = customers.filter(c => c.last_login_days > 30);
-    const activeCustomers = customers.filter(c => c.last_login_days <= 30);
-    
-    const inactiveAvgRisk = inactiveCustomers.length > 0 
-      ? inactiveCustomers.reduce((sum, c) => sum + c.risk_score, 0) / inactiveCustomers.length
-      : 0;
-    const activeAvgRisk = activeCustomers.length > 0
-      ? activeCustomers.reduce((sum, c) => sum + c.risk_score, 0) / activeCustomers.length
-      : 0;
-    
-    const inactiveRiskMultiplier = activeAvgRisk > 0 
-      ? (inactiveAvgRisk / activeAvgRisk).toFixed(1)
-      : 0;
+    const inactiveCustomers = customers.filter((c) => c.last_login_days > 30);
+    const activeCustomers = customers.filter((c) => c.last_login_days <= 30);
+
+    const inactiveAvgRisk =
+      inactiveCustomers.length > 0
+        ? inactiveCustomers.reduce((sum, c) => sum + c.risk_score, 0) /
+          inactiveCustomers.length
+        : 0;
+    const activeAvgRisk =
+      activeCustomers.length > 0
+        ? activeCustomers.reduce((sum, c) => sum + c.risk_score, 0) /
+          activeCustomers.length
+        : 0;
+
+    const inactiveRiskMultiplier =
+      activeAvgRisk > 0 ? (inactiveAvgRisk / activeAvgRisk).toFixed(1) : 0;
 
     // Insight 2: Health score correlation with churn
-    const lowHealthCustomers = customers.filter(c => c.health_score < 40);
-    const highRiskInLowHealth = lowHealthCustomers.filter(c => c.risk_score > 70).length;
-    const lowHealthChurnProb = lowHealthCustomers.length > 0
-      ? Math.round((highRiskInLowHealth / lowHealthCustomers.length) * 100)
-      : 0;
-    
-    const avgHealthThreshold = customers.reduce((sum, c) => sum + c.health_score, 0) / customers.length;
+    const lowHealthCustomers = customers.filter((c) => c.health_score < 40);
+    const highRiskInLowHealth = lowHealthCustomers.filter(
+      (c) => c.risk_score > 70,
+    ).length;
+    const lowHealthChurnProb =
+      lowHealthCustomers.length > 0
+        ? Math.round((highRiskInLowHealth / lowHealthCustomers.length) * 100)
+        : 0;
+
+    const avgHealthThreshold =
+      customers.reduce((sum, c) => sum + c.health_score, 0) / customers.length;
 
     // Insight 3: Early engagement impact (high login frequency with low tenure)
-    const earlyEngagers = customers.filter(c => c.tenure_months <= 3 && c.login_frequency > 15);
-    const regularCustomers = customers.filter(c => c.tenure_months <= 3 && c.login_frequency <= 15);
-    
-    const earlyEngagerAvgRisk = earlyEngagers.length > 0
-      ? earlyEngagers.reduce((sum, c) => sum + c.risk_score, 0) / earlyEngagers.length
-      : 0;
-    const regularAvgRisk = regularCustomers.length > 0
-      ? regularCustomers.reduce((sum, c) => sum + c.risk_score, 0) / regularCustomers.length
-      : 0;
-    
-    const engagementMultiplier = earlyEngagerAvgRisk > 0 && regularAvgRisk > 0
-      ? (regularAvgRisk / earlyEngagerAvgRisk).toFixed(1)
-      : 0;
+    const earlyEngagers = customers.filter(
+      (c) => c.tenure_months <= 3 && c.login_frequency > 15,
+    );
+    const regularCustomers = customers.filter(
+      (c) => c.tenure_months <= 3 && c.login_frequency <= 15,
+    );
+
+    const earlyEngagerAvgRisk =
+      earlyEngagers.length > 0
+        ? earlyEngagers.reduce((sum, c) => sum + c.risk_score, 0) /
+          earlyEngagers.length
+        : 0;
+    const regularAvgRisk =
+      regularCustomers.length > 0
+        ? regularCustomers.reduce((sum, c) => sum + c.risk_score, 0) /
+          regularCustomers.length
+        : 0;
+
+    const engagementMultiplier =
+      earlyEngagerAvgRisk > 0 && regularAvgRisk > 0
+        ? (regularAvgRisk / earlyEngagerAvgRisk).toFixed(1)
+        : 0;
 
     return {
       inactiveRiskMultiplier,
       inactiveDays: 30,
       lowHealthChurnProb,
       healthThreshold: avgHealthThreshold.toFixed(1),
-      engagementMultiplier: engagementMultiplier > 0 ? engagementMultiplier : '2.5'
+      engagementMultiplier:
+        engagementMultiplier > 0 ? engagementMultiplier : "2.5",
     };
   };
 
@@ -399,9 +416,12 @@ function Dashboard() {
                 <li className="flex items-start gap-2">
                   <span className="text-blue-600 font-bold mt-0.5">•</span>
                   <span className="text-gray-700 text-sm">
-                    Customers inactive for more than {mlInsights.inactiveDays} days have a{" "}
-                    <strong>{mlInsights.inactiveRiskMultiplier}x higher churn risk</strong> compared to active
-                    users.
+                    Customers inactive for more than {mlInsights.inactiveDays}{" "}
+                    days have a{" "}
+                    <strong>
+                      {mlInsights.inactiveRiskMultiplier}x higher churn risk
+                    </strong>{" "}
+                    compared to active users.
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
@@ -410,7 +430,8 @@ function Dashboard() {
                     <strong>
                       Low health score is the strongest churn predictor
                     </strong>{" "}
-                    — customers below {mlInsights.healthThreshold} have an {mlInsights.lowHealthChurnProb}% probability of churning
+                    — customers below {mlInsights.healthThreshold} have an{" "}
+                    {mlInsights.lowHealthChurnProb}% probability of churning
                     within 60 days.
                   </span>
                 </li>
@@ -420,8 +441,9 @@ function Dashboard() {
                     <strong>
                       Early engagement significantly improves retention
                     </strong>{" "}
-                    — customers engaged in the first week are {mlInsights.engagementMultiplier}x more likely to
-                    remain active.
+                    — customers engaged in the first week are{" "}
+                    {mlInsights.engagementMultiplier}x more likely to remain
+                    active.
                   </span>
                 </li>
               </ul>
