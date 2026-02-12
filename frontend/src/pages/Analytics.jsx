@@ -1,110 +1,172 @@
-import { AlertTriangle, TrendingDown, Clock, CreditCard, MessageSquare, Activity, Zap, Calendar, CheckCircle, Mail, Gift, BookOpen, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from "react";
+import {
+  AlertTriangle,
+  TrendingDown,
+  Clock,
+  CreditCard,
+  MessageSquare,
+  Activity,
+  Zap,
+  Calendar,
+  CheckCircle,
+  Mail,
+  Gift,
+  BookOpen,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 function Analytics() {
-  const churnDrivers = [
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch analytics from backend - recalculates from DB every time
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("http://127.0.0.1:5000/api/analytics");
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to fetch analytics`);
+        }
+
+        const data = await response.json();
+        setAnalyticsData(data);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching analytics:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalytics();
+
+    // Optional: Refresh analytics every 30 seconds for near-real-time updates
+    const intervalId = setInterval(fetchAnalytics, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const churnDriversConfig = [
     {
-      rank: 1,
       icon: TrendingDown,
-      title: 'Low Engagement',
-      description: 'Customers who stop using core features early are more likely to churn.',
-      color: 'text-red-600'
+      color: "text-red-600",
     },
     {
-      rank: 2,
       icon: Clock,
-      title: 'Long Inactivity',
-      description: 'Inactivity beyond 14 days strongly increases churn probability.',
-      color: 'text-orange-600'
+      color: "text-orange-600",
     },
     {
-      rank: 3,
       icon: CreditCard,
-      title: 'Payment Issues',
-      description: 'Failed or delayed payments lead to higher customer drop-offs.',
-      color: 'text-yellow-600'
+      color: "text-yellow-600",
     },
     {
-      rank: 4,
       icon: MessageSquare,
-      title: 'Support Complaints',
-      description: 'Repeated unresolved issues reduce customer trust and retention.',
-      color: 'text-blue-600'
-    }
+      color: "text-blue-600",
+    },
   ];
 
-  const predictiveInsights = [
+  const predictiveInsightsConfig = [
     {
       icon: Activity,
-      title: 'Health Score Threshold',
-      description: 'Customers with a health score below 40 have the highest churn probability.'
     },
     {
       icon: Zap,
-      title: 'Early Warning Signal',
-      description: 'Sudden drops in usage often predict churn before account cancellation.'
     },
     {
       icon: Calendar,
-      title: 'Critical Retention Window',
-      description: 'The first 7 days of customer activity strongly influence long-term retention.'
-    }
+    },
   ];
 
-  const recommendedActions = [
+  const recommendedActionsConfig = [
     {
       icon: Mail,
-      title: 'Re-engage customers inactive for more than 7 days'
     },
     {
       icon: Gift,
-      title: 'Provide offers or discounts to high-risk users'
     },
     {
       icon: BookOpen,
-      title: 'Improve onboarding during the first week'
     },
     {
       icon: AlertCircle,
-      title: 'Monitor and resolve payment failures early'
-    }
+    },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <p className="text-red-800">Error loading analytics: {error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-gray-800">Analytics</h2>
-        <p className="text-gray-600 mt-1">Business insights and churn analysis derived from customer behavior</p>
+        <p className="text-gray-600 mt-1">
+          Business insights and churn analysis derived from customer behavior
+        </p>
       </div>
 
       <div className="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-6">
         <div className="flex items-start gap-4">
           <AlertTriangle className="w-6 h-6 text-orange-600 flex-shrink-0 mt-1" />
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Current Churn Risk Overview</h3>
-            <p className="text-gray-700 leading-relaxed">18% of active customers are currently at high risk of churn due to low engagement and prolonged inactivity. Immediate retention efforts are recommended for this segment.</p>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              Current Churn Risk Overview
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              {analyticsData?.churnRiskOverview?.description || "Loading..."}
+            </p>
           </div>
         </div>
       </div>
 
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Top Churn Drivers</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">
+          Top Churn Drivers
+        </h3>
         <div className="space-y-3">
-          {churnDrivers.map((driver) => {
-            const Icon = driver.icon;
+          {analyticsData?.churnDrivers?.map((driver, index) => {
+            const Icon = churnDriversConfig[index]?.icon || TrendingDown;
+            const color = churnDriversConfig[index]?.color || "text-gray-600";
             return (
-              <div key={driver.rank} className="bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow">
+              <div
+                key={driver.rank}
+                className="bg-white rounded-lg shadow p-5 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-sm font-bold text-gray-700">{driver.rank}</span>
+                      <span className="text-sm font-bold text-gray-700">
+                        {driver.rank}
+                      </span>
                     </div>
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Icon className={`w-5 h-5 ${driver.color}`} />
-                      <h4 className="text-base font-semibold text-gray-800">{driver.title}</h4>
+                      <Icon className={`w-5 h-5 ${color}`} />
+                      <h4 className="text-base font-semibold text-gray-800">
+                        {driver.title}
+                      </h4>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">{driver.description}</p>
+                    <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                      {driver.description}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -114,17 +176,26 @@ function Analytics() {
       </div>
 
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Predictive Insights (ML Analysis)</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">
+          Predictive Insights (ML Analysis)
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {predictiveInsights.map((insight, index) => {
-            const Icon = insight.icon;
+          {analyticsData?.predictiveInsights?.map((insight, index) => {
+            const Icon = predictiveInsightsConfig[index]?.icon || Activity;
             return (
-              <div key={index} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+              <div
+                key={index}
+                className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center gap-3 mb-3">
                   <Icon className="w-5 h-5 text-blue-600" />
-                  <h4 className="text-base font-semibold text-gray-800">{insight.title}</h4>
+                  <h4 className="text-base font-semibold text-gray-800">
+                    {insight.title}
+                  </h4>
                 </div>
-                <p className="text-sm text-gray-600 leading-relaxed">{insight.description}</p>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {insight.description}
+                </p>
               </div>
             );
           })}
@@ -132,20 +203,27 @@ function Analytics() {
       </div>
 
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Recommended Retention Actions</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">
+          Recommended Retention Actions
+        </h3>
         <div className="bg-white rounded-lg shadow p-6">
           <div className="space-y-4">
-            {recommendedActions.map((action, index) => {
-              const Icon = action.icon;
+            {analyticsData?.recommendedActions?.map((action, index) => {
+              const Icon = recommendedActionsConfig[index]?.icon || Mail;
               return (
-                <div key={index} className="flex items-start gap-4 pb-4 last:pb-0 border-b border-gray-200 last:border-b-0">
+                <div
+                  key={index}
+                  className="flex items-start gap-4 pb-4 last:pb-0 border-b border-gray-200 last:border-b-0"
+                >
                   <div className="flex-shrink-0 mt-1">
                     <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
                       <Icon className="w-4 h-4 text-green-600" />
                     </div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-base text-gray-700 font-medium">{action.title}</p>
+                    <p className="text-base text-gray-700 font-medium">
+                      {action.title}
+                    </p>
                   </div>
                 </div>
               );
