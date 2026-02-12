@@ -1,7 +1,3 @@
-Here is the clean, professional, and fully corrected version of your **README.md**. I have fixed the folder naming inconsistencies (changing `server/client` to `backend/frontend`) and polished the formatting so you can copy and paste it directly into GitHub.
-
----
-
 # Customer Retention System
 
 ## 📌 Project Overview
