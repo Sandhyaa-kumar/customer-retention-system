@@ -11,15 +11,49 @@ import {
   Mail,
   Loader2,
 } from "lucide-react";
-import { kpiMetrics, retentionData, churnReasons } from "../data/mockData";
 
 function Dashboard() {
   const navigate = useNavigate();
   const [topRiskCustomers, setTopRiskCustomers] = useState([]);
   const [mlInsights, setMlInsights] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
-  // Fetch customer data and calculate ML insights
+  // Fetch dashboard statistics with auto-refresh polling
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        setStatsLoading(true);
+        const response = await fetch(
+          "http://127.0.0.1:5000/api/dashboard-stats",
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status}: Failed to fetch dashboard stats`,
+          );
+        }
+
+        const data = await response.json();
+        setDashboardStats(data);
+        setStatsLoading(false);
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+        setStatsLoading(false);
+      }
+    };
+
+    // Initial fetch
+    fetchDashboardStats();
+
+    // Auto-refresh every 30 seconds to reflect DB changes
+    const statsInterval = setInterval(fetchDashboardStats, 30000);
+
+    return () => clearInterval(statsInterval);
+  }, []);
+
+  // Fetch customer data and calculate ML insights with auto-refresh
   useEffect(() => {
     const fetchCustomerData = async () => {
       try {
@@ -51,7 +85,13 @@ function Dashboard() {
       }
     };
 
+    // Initial fetch
     fetchCustomerData();
+
+    // Auto-refresh every 30 seconds to reflect DB changes
+    const customersInterval = setInterval(fetchCustomerData, 30000);
+
+    return () => clearInterval(customersInterval);
   }, []);
 
   // Calculate real ML insights from customer data
@@ -126,48 +166,48 @@ function Dashboard() {
   const kpiCards = [
     {
       label: "Churn Rate",
-      value: kpiMetrics.churnRate,
+      value: dashboardStats?.kpiMetrics?.churnRate || "0%",
       subtitle: "Percentage of customers lost this month",
       icon: TrendingDown,
       color: "text-red-600",
-      trend: "↓ Improved from last month",
-      trendType: "positive",
+      trend: "Based on actual churn data",
+      trendType: "neutral",
     },
     {
       label: "Retention Rate",
-      value: kpiMetrics.retentionRate,
+      value: dashboardStats?.kpiMetrics?.retentionRate || "0%",
       subtitle: "Percentage of customers retained",
       icon: TrendingUp,
       color: "text-green-600",
-      trend: "↑ Up from last month",
+      trend: "Inverse of churn rate",
       trendType: "positive",
     },
     {
       label: "Active Users",
-      value: kpiMetrics.activeUsers,
+      value: dashboardStats?.kpiMetrics?.activeUsers || "0",
       subtitle: "Customers actively using product",
       icon: Users,
       color: "text-blue-600",
-      trend: "→ Stable from last month",
+      trend: "Last login within 30 days",
       trendType: "neutral",
     },
     {
       label: "Health Score",
-      value: kpiMetrics.healthScore,
+      value: dashboardStats?.kpiMetrics?.healthScore || "0/100",
       subtitle: "Overall customer wellness",
       icon: Heart,
       color: "text-pink-600",
-      trend: "↑ Improved from last month",
+      trend: "Average across all customers",
       trendType: "positive",
     },
     {
       label: "Loss Due to Churn",
-      value: kpiMetrics.lossFromChurn,
+      value: dashboardStats?.kpiMetrics?.lossFromChurn || "$0",
       subtitle: "Revenue at risk from churn",
       icon: DollarSign,
       color: "text-orange-600",
-      trend: "↓ Decreased from last month",
-      trendType: "positive",
+      trend: "Monthly recurring revenue lost",
+      trendType: "negative",
     },
   ];
 
@@ -182,31 +222,37 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {kpiCards.map((kpi, index) => {
-          const Icon = kpi.icon;
-          return (
-            <div
-              key={index}
-              className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-600">
-                  {kpi.label}
-                </span>
-                <Icon className={`w-5 h-5 ${kpi.color}`} />
-              </div>
-              <p className="text-2xl font-bold text-gray-800 mb-2">
-                {kpi.value}
-              </p>
-              <p className="text-xs text-gray-500 mb-2">{kpi.subtitle}</p>
-              <p
-                className={`text-xs font-medium ${kpi.trendType === "positive" ? "text-green-600" : kpi.trendType === "negative" ? "text-red-600" : "text-gray-600"}`}
+        {statsLoading ? (
+          <div className="col-span-5 flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          </div>
+        ) : (
+          kpiCards.map((kpi, index) => {
+            const Icon = kpi.icon;
+            return (
+              <div
+                key={index}
+                className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow"
               >
-                {kpi.trend}
-              </p>
-            </div>
-          );
-        })}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-gray-600">
+                    {kpi.label}
+                  </span>
+                  <Icon className={`w-5 h-5 ${kpi.color}`} />
+                </div>
+                <p className="text-2xl font-bold text-gray-800 mb-2">
+                  {kpi.value}
+                </p>
+                <p className="text-xs text-gray-500 mb-2">{kpi.subtitle}</p>
+                <p
+                  className={`text-xs font-medium ${kpi.trendType === "positive" ? "text-green-600" : kpi.trendType === "negative" ? "text-red-600" : "text-gray-600"}`}
+                >
+                  {kpi.trend}
+                </p>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -219,31 +265,39 @@ function Dashboard() {
               Customer retention trend over the last 6 months
             </p>
           </div>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {retentionData.map((data, index) => {
-              const isBiggestDrop =
-                index > 0 &&
-                retentionData[index - 1].retention - data.retention > 3;
-              return (
-                <div key={index} className="flex-1 flex flex-col items-center">
+          {statsLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+          ) : (
+            <div className="h-64 flex items-end justify-between gap-2">
+              {(dashboardStats?.retentionData || []).map((data, index, arr) => {
+                const isBiggestDrop =
+                  index > 0 && arr[index - 1].retention - data.retention > 3;
+                return (
                   <div
-                    className={`w-full rounded-t-lg relative transition-all ${isBiggestDrop ? "bg-red-500" : "bg-blue-500"}`}
-                    style={{ height: `${data.retention * 2.4}px` }}
+                    key={index}
+                    className="flex-1 flex flex-col items-center"
                   >
-                    {isBiggestDrop && (
-                      <AlertCircle className="absolute -top-6 right-0 w-4 h-4 text-red-500" />
-                    )}
-                    <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700">
-                      {data.retention}%
+                    <div
+                      className={`w-full rounded-t-lg relative transition-all ${isBiggestDrop ? "bg-red-500" : "bg-blue-500"}`}
+                      style={{ height: `${data.retention * 2.4}px` }}
+                    >
+                      {isBiggestDrop && (
+                        <AlertCircle className="absolute -top-6 right-0 w-4 h-4 text-red-500" />
+                      )}
+                      <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700">
+                        {data.retention}%
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-600 mt-2">
+                      {data.month}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-600 mt-2">
-                    {data.month}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
@@ -255,57 +309,93 @@ function Dashboard() {
               Distribution of customer churn factors
             </p>
           </div>
-          <div className="flex items-center justify-center h-48">
-            <div className="relative w-48 h-48">
-              <svg viewBox="0 0 100 100" className="transform -rotate-90">
-                {churnReasons.reduce((acc, reason, index) => {
-                  const previousTotal = churnReasons
-                    .slice(0, index)
-                    .reduce((sum, r) => sum + r.value, 0);
-                  const offset = (previousTotal / 100) * 314;
-                  const strokeDasharray = `${(reason.value / 100) * 314} 314`;
-
-                  acc.push(
-                    <circle
-                      key={index}
-                      cx="50"
-                      cy="50"
-                      r="50"
-                      fill="none"
-                      stroke={reason.color}
-                      strokeWidth="100"
-                      strokeDasharray={strokeDasharray}
-                      strokeDashoffset={-offset}
-                    />,
-                  );
-                  return acc;
-                }, [])}
-              </svg>
+          {statsLoading ? (
+            <div className="flex justify-center items-center h-48">
+              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
             </div>
-          </div>
-          <div className="mt-4 space-y-2">
-            {churnReasons.map((reason, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: reason.color }}
-                  />
-                  <span className="text-sm text-gray-700">{reason.reason}</span>
+          ) : (
+            <>
+              <div className="flex items-center justify-center h-64">
+                <div className="relative w-64 h-64">
+                  <svg viewBox="0 0 200 200" className="w-full h-full">
+                    {(dashboardStats?.churnReasons || []).map(
+                      (reason, index, arr) => {
+                        // Calculate pie slice path
+                        const total = arr.reduce((sum, r) => sum + r.value, 0);
+                        const startAngle = arr
+                          .slice(0, index)
+                          .reduce((sum, r) => sum + (r.value / total) * 360, 0);
+                        const endAngle =
+                          startAngle + (reason.value / total) * 360;
+
+                        // Convert angles to radians
+                        const startRad = ((startAngle - 90) * Math.PI) / 180;
+                        const endRad = ((endAngle - 90) * Math.PI) / 180;
+
+                        // Calculate path coordinates
+                        const centerX = 100;
+                        const centerY = 100;
+                        const radius = 80;
+
+                        const x1 = centerX + radius * Math.cos(startRad);
+                        const y1 = centerY + radius * Math.sin(startRad);
+                        const x2 = centerX + radius * Math.cos(endRad);
+                        const y2 = centerY + radius * Math.sin(endRad);
+
+                        const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+                        const pathData = [
+                          `M ${centerX} ${centerY}`,
+                          `L ${x1} ${y1}`,
+                          `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                          "Z",
+                        ].join(" ");
+
+                        return (
+                          <path
+                            key={index}
+                            d={pathData}
+                            fill={reason.color}
+                            stroke="white"
+                            strokeWidth="2"
+                            className="transition-all hover:opacity-80 cursor-pointer"
+                          />
+                        );
+                      },
+                    )}
+                  </svg>
                 </div>
-                <span className="text-sm font-semibold text-gray-800">
-                  {reason.value}%
-                </span>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Price and low usage together account for over 60% of churn,
-              indicating that customers primarily leave due to perceived value
-              misalignment or insufficient product adoption.
-            </p>
-          </div>
+              <div className="mt-4 space-y-2">
+                {(dashboardStats?.churnReasons || []).map((reason, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: reason.color }}
+                      />
+                      <span className="text-sm text-gray-700">
+                        {reason.reason}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-800">
+                      {reason.value}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Analysis based on actual customer behavior patterns including
+                  pricing, usage metrics, and support interactions from your
+                  dataset.
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
