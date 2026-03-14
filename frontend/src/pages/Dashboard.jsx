@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../api/client";
 import {
   TrendingDown,
   TrendingUp,
@@ -10,6 +11,7 @@ import {
   AlertCircle,
   Mail,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 
 function Dashboard() {
@@ -19,59 +21,47 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [syncTick, setSyncTick] = useState(0);
 
   // Fetch dashboard statistics with auto-refresh polling
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
         setStatsLoading(true);
-        const response = await fetch(
-          "http://127.0.0.1:5000/api/dashboard-stats",
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `HTTP ${response.status}: Failed to fetch dashboard stats`,
-          );
-        }
-
-        const data = await response.json();
+        const data = await apiFetch("/api/dashboard-stats");
         setDashboardStats(data);
         setStatsLoading(false);
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
         setStatsLoading(false);
+        if (error.status === 401) {
+          navigate("/login");
+          return;
+        }
       }
     };
 
-    // Initial fetch
+    // Initial fetch and manual sync refresh
     fetchDashboardStats();
 
-    // Auto-refresh every 30 seconds to reflect DB changes
-    const statsInterval = setInterval(fetchDashboardStats, 30000);
+    // Auto-refresh every 2 minutes to reduce UI disturbance while still staying fresh
+    const statsInterval = setInterval(fetchDashboardStats, 120000);
 
     return () => clearInterval(statsInterval);
-  }, []);
+  }, [syncTick]);
 
   // Fetch customer data and calculate ML insights with auto-refresh
   useEffect(() => {
     const fetchCustomerData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://127.0.0.1:5000/api/customers");
+        const data = await apiFetch("/api/customers");
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: Failed to fetch data`);
-        }
-
-        const data = await response.json();
-
-        // Filter high-risk customers and sort by risk score
+        // Filter high-risk customers and sort by risk score (highest first)
         const highRiskCustomers = data
-          .filter((customer) => customer.risk_level === "High Risk")
+          .filter((customer) => customer.predicted_status !== "Active")
           .sort((a, b) => b.risk_score - a.risk_score)
-          .slice(0, 10); // Get top 10
-
+          .slice(0, 10);
         setTopRiskCustomers(highRiskCustomers);
 
         // Calculate ML-based insights
@@ -82,17 +72,29 @@ function Dashboard() {
       } catch (error) {
         console.error("Error fetching customer data:", error);
         setLoading(false);
+        if (error.status === 401) {
+          navigate("/login");
+          return;
+        }
       }
     };
 
     // Initial fetch
     fetchCustomerData();
 
-    // Auto-refresh every 30 seconds to reflect DB changes
-    const customersInterval = setInterval(fetchCustomerData, 30000);
+    // Auto-refresh every 2 minutes to reduce UI disturbance while still staying fresh
+    const customersInterval = setInterval(fetchCustomerData, 120000);
 
     return () => clearInterval(customersInterval);
-  }, []);
+  }, [syncTick]);
+
+  const handleSyncData = () => {
+    setSyncTick((prev) => prev + 1);
+  };
+
+  const handleRiskCustomerClick = (customerId) => {
+    navigate("/customers", { state: { selectedCustomerId: customerId } });
+  };
 
   // Calculate real ML insights from customer data
   const calculateMLInsights = (customers) => {
@@ -211,14 +213,23 @@ function Dashboard() {
     },
   ];
 
-  const handleRiskCustomerClick = (customerId) => {
-    navigate("/customers", { state: { selectedCustomerId: customerId } });
-  };
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+          <button
+            type="button"
+            onClick={handleSyncData}
+            disabled={statsLoading || loading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${statsLoading || loading ? "animate-spin" : ""}`}
+            />
+            Sync Data
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -448,7 +459,7 @@ function Dashboard() {
                         <div className="flex items-center gap-2">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
-                              {customer.customer_name}
+                              {customer.customer_name || "New Customer"}
                             </div>
                             <div className="text-sm text-gray-500">
                               {customer.email_address}
@@ -456,7 +467,7 @@ function Dashboard() {
                           </div>
                           {isInactive && (
                             <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                              Inactive {daysSinceActivity}d
+                              No Login {daysSinceActivity}d
                             </span>
                           )}
                         </div>

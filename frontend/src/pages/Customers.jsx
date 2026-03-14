@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Mail,
   X,
@@ -10,14 +10,16 @@ import {
   Loader2,
   AlertTriangle,
 } from "lucide-react";
+import { apiFetch } from "../api/client";
 
 function Customers() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("inactive");
   const [searchTerm, setSearchTerm] = useState("");
 
   // Fetch Real Data from Flask API
@@ -28,22 +30,8 @@ function Customers() {
         setError(null);
 
         // Fetch from Flask backend
-        const response = await fetch("http://127.0.0.1:5000/api/customers");
+        const data = await apiFetch("/api/customers");
 
-        if (!response.ok) {
-          throw new Error(
-            `HTTP ${response.status}: Failed to fetch data from backend`,
-          );
-        }
-
-        const data = await response.json();
-
-        // Handle error responses from backend
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        // Validate data structure
         if (!Array.isArray(data)) {
           throw new Error("Invalid data format received from API");
         }
@@ -51,14 +39,20 @@ function Customers() {
         setCustomers(data);
         setLoading(false);
       } catch (error) {
-        console.error("❌ Frontend Error:", error.message);
+        console.error("Frontend Error:", error.message);
+        if (error.status === 401) {
+          navigate("/login");
+          return;
+        }
         setError(error.message);
         setLoading(false);
-        setCustomers([]); // Reset to empty array on error
+        setCustomers([]);
       }
     };
 
     fetchData();
+    const intervalId = setInterval(fetchData, 120000);
+    return () => clearInterval(intervalId);
   }, []);
 
   // Handle selection from Dashboard navigation
@@ -79,10 +73,10 @@ function Customers() {
           color: "bg-red-50 text-red-700 border border-red-200",
           text: "High Risk",
         };
-      case "Inactive":
+      case "No Recent Login":
         return {
           color: "bg-yellow-50 text-yellow-700 border border-yellow-200",
-          text: "Inactive",
+          text: "No Recent Login",
         };
       default:
         return null;
@@ -90,12 +84,17 @@ function Customers() {
   };
 
   const getStatusBadge = (status) => {
-    return status === "Active"
-      ? "bg-green-50 text-green-700 border border-green-200"
-      : "bg-red-50 text-red-700 border border-red-200";
+    switch (status) {
+      case "Churned":
+        return "bg-red-50 text-red-700 border border-red-200";
+      case "At Risk":
+        return "bg-yellow-50 text-yellow-700 border border-yellow-200";
+      default:
+        return "bg-green-50 text-green-700 border border-green-200";
+    }
   };
 
-  const getHealthScoreColor = (score) => {
+  const getActiveScoreColor = (score) => {
     if (score >= 7) return "text-green-600";
     if (score >= 4) return "text-yellow-600";
     return "text-red-600";
@@ -109,9 +108,10 @@ function Customers() {
         c.email_address?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => {
-      if (sortBy === "health") return b.health_score - a.health_score;
+      if (sortBy === "health") return b.active_score - a.active_score;
       if (sortBy === "lastLogin")
         return new Date(b.last_login) - new Date(a.last_login);
+      if (sortBy === "inactive") return b.last_login_days - a.last_login_days; // Most inactive first
       return a.customer_name?.localeCompare(b.customer_name);
     });
 
@@ -174,7 +174,7 @@ function Customers() {
               : "bg-white text-gray-700 border"
           }`}
         >
-          Sort by Health Score
+          Sort by Active Score
         </button>
         <button
           onClick={() => setSortBy("lastLogin")}
@@ -201,10 +201,10 @@ function Customers() {
                     Email
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Status
+                    Model Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Health Score
+                    Active Score
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Last Login
@@ -254,9 +254,9 @@ function Customers() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`text-sm font-semibold ${getHealthScoreColor(customer.health_score)}`}
+                          className={`text-sm font-semibold ${getActiveScoreColor(customer.active_score)}`}
                         >
-                          {(customer.health_score / 10).toFixed(1)}/10
+                          {Number(customer.active_score || 0).toFixed(1)}/10
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -313,7 +313,9 @@ function Customers() {
                     className={`px-3 py-1 text-xs rounded ${
                       selectedCustomer.risk_score > 70
                         ? "bg-red-50 text-red-700 border border-red-200"
-                        : "bg-green-50 text-green-700 border border-green-200"
+                        : selectedCustomer.risk_score > 40
+                          ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                          : "bg-green-50 text-green-700 border border-green-200"
                     }`}
                   >
                     {selectedCustomer.risk_level}
@@ -327,12 +329,13 @@ function Customers() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-sm text-gray-600">
-                        Health Score
+                        Active Score
                       </span>
                       <span
-                        className={`text-sm font-bold ${getHealthScoreColor(selectedCustomer.health_score)}`}
+                        className={`text-sm font-bold ${getActiveScoreColor(selectedCustomer.active_score)}`}
                       >
-                        {(selectedCustomer.health_score / 10).toFixed(1)}/10
+                        {Number(selectedCustomer.active_score || 0).toFixed(1)}
+                        /10
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -382,17 +385,22 @@ function Customers() {
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-3">
                     Risk Assessment
                   </p>
-                  {selectedCustomer.risk_score > 50 ? (
+                  {selectedCustomer.predicted_status !== "Active" ? (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                       <div className="flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
                         <div>
                           <p className="text-sm font-semibold text-red-800">
-                            Risk Factors
+                            {selectedCustomer.detail_insight_title ||
+                              "Risk Factors"}
                           </p>
-                          <p className="text-xs text-red-600 mt-1">
-                            Monitor for changes
-                          </p>
+                          <ul className="text-xs text-red-600 mt-1 space-y-0.5">
+                            {(selectedCustomer.detail_insights || []).map(
+                              (item) => (
+                                <li key={item}>&bull; {item}</li>
+                              ),
+                            )}
+                          </ul>
                         </div>
                       </div>
                     </div>
@@ -402,11 +410,16 @@ function Customers() {
                         <TrendingUp className="w-4 h-4 text-green-600 mt-0.5" />
                         <div>
                           <p className="text-sm font-semibold text-green-800">
-                            Schedule support follow-up
+                            {selectedCustomer.detail_insight_title ||
+                              "Loyalty Factors"}
                           </p>
-                          <p className="text-xs text-green-600 mt-1">
-                            This action may help improve retention
-                          </p>
+                          <ul className="text-xs text-green-600 mt-1 space-y-0.5">
+                            {(selectedCustomer.detail_insights || []).map(
+                              (item) => (
+                                <li key={item}>&bull; {item}</li>
+                              ),
+                            )}
+                          </ul>
                         </div>
                       </div>
                     </div>
@@ -417,12 +430,18 @@ function Customers() {
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-3">
                     Recommended Action
                   </p>
-                  <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    Schedule support follow-up
-                  </button>
+                  <div className="w-full bg-blue-50 border border-blue-200 text-blue-900 py-3 px-4 rounded-lg flex items-start gap-2">
+                    <Mail className="w-4 h-4 mt-0.5 text-blue-700" />
+                    <p className="text-sm font-medium leading-relaxed">
+                      {
+                        (selectedCustomer.recommended_actions || [
+                          "Schedule support follow-up",
+                        ])[0]
+                      }
+                    </p>
+                  </div>
                   <p className="text-xs text-gray-500 text-center mt-2">
-                    UI only – backend integration planned
+                    Suggested by live model signals
                   </p>
                 </div>
               </div>

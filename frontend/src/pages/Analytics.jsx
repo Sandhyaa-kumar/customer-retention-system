@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../api/client";
 import {
   AlertTriangle,
   TrendingDown,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 
 function Analytics() {
+  const navigate = useNavigate();
   const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,17 +29,15 @@ function Analytics() {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://127.0.0.1:5000/api/analytics");
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: Failed to fetch analytics`);
-        }
-
-        const data = await response.json();
+        const data = await apiFetch("/api/analytics");
         setAnalyticsData(data);
         setError(null);
       } catch (err) {
         console.error("Error fetching analytics:", err);
+        if (err.status === 401) {
+          navigate("/login");
+          return;
+        }
         setError(err.message);
       } finally {
         setLoading(false);
@@ -45,8 +46,8 @@ function Analytics() {
 
     fetchAnalytics();
 
-    // Optional: Refresh analytics every 30 seconds for near-real-time updates
-    const intervalId = setInterval(fetchAnalytics, 30000);
+    // Refresh every 2 minutes to reduce repetitive refresh churn in the UI
+    const intervalId = setInterval(fetchAnalytics, 120000);
 
     return () => clearInterval(intervalId);
   }, []);
