@@ -1,7 +1,9 @@
 flask
 flask-cors
+flask-jwt-extended
+gunicorn
 pandas
 joblib
-scikit-learn
+scikit-learn==1.6.1
 mysql-connector-python
 numpy
