@@ -2,6 +2,7 @@
 
 import os
 
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -12,6 +13,10 @@ from routes import analytics_bp, auth_bp, customers_bp, dashboard_bp
 # Import services to initialize them
 from services import ml_models
 from config.database import ensure_admin_table
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
 def _parse_cors_origins():
@@ -50,7 +55,13 @@ def create_app():
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
 
-    ensure_admin_table()
+    require_db_on_startup = os.getenv("REQUIRE_DB_ON_STARTUP", "1") == "1"
+    try:
+        ensure_admin_table()
+    except Exception as exc:
+        if require_db_on_startup:
+            raise
+        print(f"⚠️ Database bootstrap skipped: {exc}")
 
     # Register blueprints
     app.register_blueprint(auth_bp)

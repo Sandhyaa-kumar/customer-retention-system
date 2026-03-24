@@ -7,6 +7,10 @@ import joblib
 import os
 
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.normpath(os.path.join(BASE_DIR, "..", "models"))
+
+
 class MLModels:
     """Singleton class to load and manage ML models."""
     
@@ -21,11 +25,9 @@ class MLModels:
     def _load_models(self):
         """Load ML components with error reporting."""
         try:
-            models_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
-            
-            self.model = joblib.load(os.path.join(models_dir, 'churn_model.pkl'))
-            self.encoder = joblib.load(os.path.join(models_dir, 'label_encoder.pkl'))
-            self.feature_cols = joblib.load(os.path.join(models_dir, 'feature_cols.pkl'))
+            self.model = joblib.load(os.path.join(MODELS_DIR, 'churn_model.pkl'))
+            self.encoder = joblib.load(os.path.join(MODELS_DIR, 'label_encoder.pkl'))
+            self.feature_cols = joblib.load(os.path.join(MODELS_DIR, 'feature_cols.pkl'))
             
             print("✅ ML Models and Feature list loaded successfully.")
             print(f"📋 Required Features: {self.feature_cols}")

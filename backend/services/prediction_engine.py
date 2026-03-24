@@ -2,12 +2,17 @@
 
 from collections import Counter
 from datetime import datetime, timedelta
+import os
 
 import numpy as np
 import pandas as pd
 
-from config.database import get_db_connection
+from config.database import get_cloud_engine
 from services.ml_loader import ml_models
+
+
+BASE_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+LOCAL_DATASET_PATH = os.path.join(BASE_DIR, "customer_churn_dataset.csv")
 
 
 CANONICAL_COLUMNS = {
@@ -243,16 +248,31 @@ def _serialize_records(frame):
     return serialized
 
 
+def _load_customer_frame():
+    engine = get_cloud_engine()
+    try:
+        with engine.connect() as conn:
+            return pd.read_sql("SELECT * FROM customers", conn)
+    except Exception as exc:
+        allow_fallback = os.getenv("ALLOW_LOCAL_DATA_FALLBACK", "0") == "1"
+        if not allow_fallback:
+            raise
+
+        if not os.path.exists(LOCAL_DATASET_PATH):
+            raise RuntimeError(
+                "Database unavailable and local dataset fallback file was not found."
+            ) from exc
+
+        print(f"⚠️ Using local CSV fallback data because DB query failed: {exc}")
+        return pd.read_csv(LOCAL_DATASET_PATH)
+
+
 def get_live_customer_predictions():
-    """Fetch all rows from MySQL and enrich them with fresh model predictions."""
+    """Fetch all rows from TiDB Cloud and enrich them with fresh model predictions."""
     if not ml_models.is_loaded():
         raise RuntimeError("ML models are not loaded.")
 
-    conn = get_db_connection()
-    try:
-        raw_frame = pd.read_sql("SELECT * FROM customers", conn)
-    finally:
-        conn.close()
+    raw_frame = _load_customer_frame()
 
     if raw_frame.empty:
         return []
