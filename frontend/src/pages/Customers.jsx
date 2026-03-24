@@ -280,7 +280,7 @@ function Customers() {
 
         {selectedCustomer && (
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg border p-6 sticky top-6">
+            <div className="bg-white rounded-lg shadow-lg border p-6 sticky top-6 max-h-[calc(100vh-120px)] overflow-y-auto">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-bold text-gray-800">
                   Customer Details
