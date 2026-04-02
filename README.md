@@ -115,6 +115,50 @@ CUSTOMER-RETENTION-SYSTEM/
 
 ---
 
+## 🚢 Deployment Readiness
+
+### Backend (Production)
+
+1. Create environment file from template:
+`cp backend/.env.example backend/.env` (or copy manually on Windows)
+
+2. Set secure values before deploy:
+- `JWT_SECRET_KEY`
+- `ADMIN_PASSWORD`
+- Database credentials (`DB_*`)
+- `CORS_ALLOWED_ORIGINS` to your frontend domain
+
+3. Install dependencies:
+`pip install -r backend/requirements.txt`
+
+4. Run production server with Gunicorn:
+`gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 4 wsgi:app`
+
+### Frontend (Production)
+
+1. Create environment file from template:
+`cp frontend/.env.example frontend/.env` (or copy manually on Windows)
+
+2. Configure API endpoint:
+- Set `VITE_API_URL` only if API is hosted on a different domain.
+- Leave blank when using same-origin reverse proxy (`/api`).
+
+3. Build static assets:
+`npm --prefix frontend run build`
+
+4. Serve `frontend/dist` using Nginx/Apache or any static host.
+
+### Health Checklist Before Go-Live
+
+- `FLASK_ENV=production` and `FLASK_DEBUG=0`
+- Strong `JWT_SECRET_KEY` configured
+- CORS restricted to trusted origins
+- HTTPS enabled at load balancer/reverse proxy
+- Default admin password changed
+- Backend process managed (systemd, Docker, PM2, or cloud service)
+
+---
+
 ## 🧠 Model Logic: Why Random Forest?
 
 We implemented a **Random Forest Classifier** because it:
