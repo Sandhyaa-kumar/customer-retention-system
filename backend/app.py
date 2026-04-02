@@ -20,13 +20,12 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
 def _parse_cors_origins():
-    """Parse comma-separated allowed origins for CORS.
+    """Parse allowed origins for CORS.
 
-    Examples:
-    - "http://localhost:5173,http://127.0.0.1:5173"
-    - "*"
+    Defaults to "*" for quick deployment and can be restricted through
+    CORS_ALLOWED_ORIGINS as a comma-separated list.
     """
-    raw = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "*")
     origins = [item.strip() for item in raw.split(",") if item.strip()]
     if "*" in origins:
         return "*"
@@ -53,6 +52,7 @@ def create_app():
         resources={r"/api/*": {"origins": _parse_cors_origins()}},
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        supports_credentials=os.getenv("CORS_SUPPORTS_CREDENTIALS", "0") == "1",
     )
 
     require_db_on_startup = os.getenv("REQUIRE_DB_ON_STARTUP", "1") == "1"
